@@ -10,18 +10,21 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 # Handle Render's PostgreSQL URL format
 database_url = os.getenv('DATABASE_URL', 'sqlite:///blog.db')
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    logger.info("Using PostgreSQL database")
+else:
+    logger.info("Using SQLite database")
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-please-change-in-production')
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 db.init_app(app)
 
@@ -35,7 +38,13 @@ CURRENT_USER = {
 def init_db():
     try:
         with app.app_context():
+            # Test database connection
+            db.engine.connect()
+            logger.info("Successfully connected to database")
+            
+            # Create tables
             db.create_all()
+            logger.info("Database tables created")
             
             # Add sample users if none exist
             if not User.query.first():
@@ -46,7 +55,7 @@ def init_db():
                 ]
                 db.session.add_all(users)
                 db.session.commit()
-                logger.info("Database initialized with sample users")
+                logger.info("Sample users added to database")
     except Exception as e:
         logger.error(f"Error initializing database: {str(e)}")
         raise
