@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
 from models import db, User, Blog, Comment, Like
 import os
 from datetime import datetime
 from dotenv import load_dotenv
 import logging
 import re
+from werkzeug.security import generate_password_hash, check_password_hash
+from functools import wraps
 
 load_dotenv()
 
@@ -62,6 +64,71 @@ def init_db():
 
 # Initialize database
 init_db()
+
+# Login required decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Authentication routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            flash('Successfully logged in!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid email or password.', 'error')
+    
+    return render_template('auth/login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('auth/signup.html')
+        
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered.', 'error')
+            return render_template('auth/signup.html')
+        
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken.', 'error')
+            return render_template('auth/signup.html')
+        
+        user = User(username=username, email=email)
+        user.set_password(password)
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Account created successfully! Please log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('auth/signup.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    flash('Successfully logged out.', 'success')
+    return redirect(url_for('home'))
 
 @app.route('/')
 def home():
@@ -170,6 +237,13 @@ def not_found_error(error):
 def internal_error(error):
     db.session.rollback()
     return render_template('error.html', error="Internal server error"), 500
+
+@app.context_processor
+def inject_user():
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        return {'current_user': user}
+    return {'current_user': None}
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
