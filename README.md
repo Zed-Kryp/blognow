@@ -74,4 +74,4 @@ blognow-local/
 - The application uses SQLite as the database
 - No authentication is implemented yet - using mock users
 - All styling is done with custom CSS (no frameworks)
-- Frontend uses vanilla JavaScript for interactivity 
+- Frontend uses vanilla JavaScript for interactivity
