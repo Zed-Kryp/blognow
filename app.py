@@ -44,6 +44,11 @@ def init_db():
             db.engine.connect()
             logger.info("Successfully connected to database")
             
+            # Drop all tables if using PostgreSQL
+            if database_url.startswith('postgresql://'):
+                logger.info("Dropping all tables for PostgreSQL database")
+                db.drop_all()
+            
             # Create tables
             db.create_all()
             logger.info("Database tables created")
