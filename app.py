@@ -245,6 +245,127 @@ def inject_user():
         return {'current_user': user}
     return {'current_user': None}
 
+# Admin required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user or current_user.role != 'admin':
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('home'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Admin routes
+@app.route('/admin')
+@login_required
+@admin_required
+def admin_dashboard():
+    stats = {
+        'total_users': User.query.count(),
+        'total_blogs': Blog.query.count(),
+        'total_comments': Comment.query.count(),
+        'total_likes': Like.query.count()
+    }
+    
+    users = User.query.order_by(User.created_at.desc()).all()
+    blogs = Blog.query.order_by(Blog.created_at.desc()).all()
+    comments = Comment.query.order_by(Comment.created_at.desc()).all()
+    
+    return render_template('admin/dashboard.html',
+                         stats=stats,
+                         users=users,
+                         blogs=blogs,
+                         comments=comments)
+
+@app.route('/admin/user/<int:user_id>/update-role', methods=['POST'])
+@login_required
+@admin_required
+def admin_update_role(user_id):
+    user = User.query.get_or_404(user_id)
+    new_role = request.form.get('role')
+    
+    if new_role in ['user', 'author', 'moderator', 'admin']:
+        user.role = new_role
+        db.session.commit()
+        flash(f'User role updated to {new_role}', 'success')
+    else:
+        flash('Invalid role selected', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/user/<int:user_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if user.id == current_user.id:
+        return jsonify({'success': False, 'error': 'Cannot delete your own account'})
+    
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/blog/<int:blog_id>/toggle-status', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_blog_status(blog_id):
+    blog = Blog.query.get_or_404(blog_id)
+    
+    try:
+        blog.published = not blog.published
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/blog/<int:blog_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_blog(blog_id):
+    blog = Blog.query.get_or_404(blog_id)
+    
+    try:
+        db.session.delete(blog)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/comment/<int:comment_id>/toggle-status', methods=['POST'])
+@login_required
+@admin_required
+def admin_toggle_comment_status(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+    
+    try:
+        comment.approved = not comment.approved
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/comment/<int:comment_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def admin_delete_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+    
+    try:
+        db.session.delete(comment)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port) 

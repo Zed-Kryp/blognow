@@ -1,51 +1,185 @@
 {% extends "base.html" %}
 
-{% block title %}{% if blog %}Edit Blog{% else %}New Blog{% endif %} - BlogNow{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
-{% endblock %}
+{% block title %}{% if blog %}Edit{% else %}New{% endif %} Blog - BlogNow{% endblock %}
 
 {% block content %}
-<div class="editor-container">
-    <h1 class="editor-title">
-        {% if blog %}Edit Blog{% else %}Write New Blog{% endif %}
-    </h1>
+<div class="container">
+    <div class="editor-container fade-in">
+        <h1 class="editor-title mb-4">
+            {% if blog %}Edit Blog{% else %}Create New Blog{% endif %}
+        </h1>
 
-    <form class="blog-form" method="POST" action="{{ url_for('edit_blog', blog_id=blog.id) if blog else url_for('new_blog') }}">
-        <div class="form-group">
-            <label for="title" class="form-label">Title</label>
-            <input type="text" id="title" name="title" class="form-control" required
-                   value="{{ blog.title if blog else '' }}"
-                   placeholder="Enter your blog title">
-        </div>
+        <form method="POST" class="blog-form">
+            <div class="form-group mb-4">
+                <label for="title" class="form-label">Title</label>
+                <input type="text" id="title" name="title" class="form-control" 
+                       value="{{ blog.title if blog else '' }}" required>
+            </div>
 
-        <div class="form-group">
-            <label for="tags" class="form-label">Tags (comma-separated)</label>
-            <input type="text" id="tags" name="tags" class="form-control"
-                   value="{{ blog.tags if blog else '' }}"
-                   placeholder="e.g., technology, programming, web development">
-        </div>
+            <div class="form-group mb-4">
+                <label for="tags" class="form-label">Tags (comma-separated)</label>
+                <input type="text" id="tags" name="tags" class="form-control" 
+                       value="{{ blog.tags if blog else '' }}" 
+                       placeholder="e.g., technology, programming, web development">
+            </div>
 
-        <div class="form-group">
-            <label for="content" class="form-label">Content</label>
-            <textarea id="content" name="content" class="form-control" required
-                      placeholder="Write your blog content here...">{{ blog.content if blog else '' }}</textarea>
-        </div>
+            <div class="form-group mb-4">
+                <label for="content" class="form-label">Content</label>
+                <textarea id="content" name="content" class="form-control" rows="15" required>{{ blog.content if blog else '' }}</textarea>
+                <div class="form-text text-muted">
+                    <span id="charCount">0</span>/50,000 characters
+                </div>
+            </div>
 
-        <div class="form-actions">
-            <button type="submit" name="publish" value="true" class="btn btn-primary">
-                {% if blog and blog.published %}Update{% else %}Publish{% endif %}
-            </button>
-            <button type="submit" name="publish" value="false" class="btn btn-secondary">
-                Save as Draft
-            </button>
-            <a href="{{ url_for('home') }}" class="btn btn-link">Cancel</a>
-        </div>
-    </form>
+            <div class="form-actions">
+                <button type="submit" name="action" value="publish" class="btn btn-primary">
+                    {% if blog %}Update{% else %}Publish{% endif %}
+                </button>
+                <button type="submit" name="action" value="draft" class="btn btn-secondary">
+                    Save as Draft
+                </button>
+                <a href="{{ url_for('home') }}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+.editor-container {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 2rem;
+    margin: 2rem 0;
+}
+
+.editor-title {
+    color: var(--text-color);
+    font-size: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.blog-form {
+    max-width: 100%;
+}
+
+.form-label {
+    color: var(--text-color);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-control {
+    background-color: var(--light-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: border-color 0.2s ease;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-rgb), 0.25);
+}
+
+.form-text {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 768px) {
+    .editor-container {
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .editor-title {
+        font-size: 1.75rem;
+    }
+
+    .form-actions {
+        flex-wrap: wrap;
+    }
+
+    .form-actions .btn {
+        flex: 1;
+        min-width: 120px;
+    }
+}
+</style>
+{% endblock %}
+
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const contentTextarea = document.getElementById('content');
+    const charCount = document.getElementById('charCount');
+    const maxLength = 50000;
+
+    // Update character count
+    function updateCharCount() {
+        const length = contentTextarea.value.length;
+        charCount.textContent = length;
+        
+        if (length > maxLength) {
+            charCount.classList.add('text-danger');
+        } else {
+            charCount.classList.remove('text-danger');
+        }
+    }
+
+    // Auto-save draft
+    let autoSaveTimeout;
+    function autoSaveDraft() {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(() => {
+            const draft = {
+                title: document.getElementById('title').value,
+                tags: document.getElementById('tags').value,
+                content: contentTextarea.value
+            };
+            localStorage.setItem('blogDraft', JSON.stringify(draft));
+        }, 1000);
+    }
+
+    // Load draft if exists
+    const savedDraft = localStorage.getItem('blogDraft');
+    if (savedDraft && !contentTextarea.value) {
+        const draft = JSON.parse(savedDraft);
+        document.getElementById('title').value = draft.title || '';
+        document.getElementById('tags').value = draft.tags || '';
+        contentTextarea.value = draft.content || '';
+        updateCharCount();
+    }
+
+    // Event listeners
+    contentTextarea.addEventListener('input', function() {
+        updateCharCount();
+        autoSaveDraft();
+    });
+
+    document.getElementById('title').addEventListener('input', autoSaveDraft);
+    document.getElementById('tags').addEventListener('input', autoSaveDraft);
+
+    // Form submission
+    document.querySelector('.blog-form').addEventListener('submit', function(e) {
+        if (contentTextarea.value.length > maxLength) {
+            e.preventDefault();
+            alert('Content exceeds maximum length of 50,000 characters');
+        } else {
+            localStorage.removeItem('blogDraft');
+        }
+    });
+});
+</script>
 {% endblock %} 

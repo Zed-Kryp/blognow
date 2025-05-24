@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - BlogNow{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="admin-dashboard fade-in">
+        <h1 class="dashboard-title mb-4">Admin Dashboard</h1>
+
+        <div class="dashboard-stats mb-4">
+            <div class="stat-card">
+                <span class="stat-value">{{ users|length }}</span>
+                <span class="stat-label">Users</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{ blogs|length }}</span>
+                <span class="stat-label">Blogs</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value">{{ comments|length }}</span>
+                <span class="stat-label">Comments</span>
+            </div>
+        </div>
+
+        <div class="dashboard-sections">
+            <section class="dashboard-section mb-4">
+                <h2>User Management</h2>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Role</th>
+                                <th>Blogs</th>
+                                <th>Comments</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr class="fade-in">
+                                <td>{{ user.username }}</td>
+                                <td>
+                                    <span class="role-badge {{ user.role }}">{{ user.role }}</span>
+                                </td>
+                                <td>{{ user.blogs|length }}</td>
+                                <td>{{ user.comments|length }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-warning" onclick="changeRole({{ user.id }})">
+                                            Change Role
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteUser({{ user.id }})">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="dashboard-section mb-4">
+                <h2>Blog Management</h2>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Author</th>
+                                <th>Status</th>
+                                <th>Likes</th>
+                                <th>Comments</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for blog in blogs %}
+                            <tr class="fade-in">
+                                <td>
+                                    <a href="{{ url_for('blog_detail', blog_id=blog.id) }}">{{ blog.title }}</a>
+                                </td>
+                                <td>{{ blog.author.username }}</td>
+                                <td>
+                                    <span class="status-badge {{ 'published' if blog.published else 'draft' }}">
+                                        {{ 'Published' if blog.published else 'Draft' }}
+                                    </span>
+                                </td>
+                                <td>{{ blog.likes|length }}</td>
+                                <td>{{ blog.comments|length }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-warning" onclick="toggleBlogStatus({{ blog.id }})">
+                                            {{ 'Unpublish' if blog.published else 'Publish' }}
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteBlog({{ blog.id }})">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="dashboard-section">
+                <h2>Comment Management</h2>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Content</th>
+                                <th>Author</th>
+                                <th>Blog</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for comment in comments %}
+                            <tr class="fade-in">
+                                <td>{{ comment.content[:50] }}...</td>
+                                <td>{{ comment.author.username }}</td>
+                                <td>
+                                    <a href="{{ url_for('blog_detail', blog_id=comment.blog.id) }}">
+                                        {{ comment.blog.title }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="status-badge {{ 'approved' if comment.approved else 'pending' }}">
+                                        {{ 'Approved' if comment.approved else 'Pending' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-warning" onclick="toggleCommentStatus({{ comment.id }})">
+                                            {{ 'Unapprove' if comment.approved else 'Approve' }}
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" onclick="deleteComment({{ comment.id }})">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.admin-dashboard {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 2rem;
+}
+
+.dashboard-title {
+    color: var(--text-color);
+    font-size: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
+
+.dashboard-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stat-card {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.dashboard-section {
+    margin-top: 2rem;
+}
+
+.dashboard-section h2 {
+    color: var(--text-color);
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th,
+.table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table th {
+    background-color: var(--light-color);
+    font-weight: 500;
+}
+
+.table tr {
+    transition: var(--transition);
+}
+
+.table tr:hover {
+    background-color: var(--light-color);
+    transform: translateX(4px);
+}
+
+.btn-group {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-group .btn {
+    transition: var(--transition);
+}
+
+.btn-group .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-warning {
+    background-color: var(--warning-color);
+    color: var(--dark-color);
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.table a {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.table a:hover {
+    color: var(--text-color);
+    text-decoration: underline;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-badge.published,
+.status-badge.approved {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.status-badge.draft,
+.status-badge.pending {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .admin-dashboard {
+        padding: 1rem;
+    }
+
+    .dashboard-title {
+        font-size: 1.75rem;
+    }
+
+    .dashboard-stats {
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .stat-card {
+        flex: 1;
+        min-width: 100px;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+    }
+
+    .btn-group {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function changeRole(userId) {
+    const roles = ['user', 'author', 'moderator', 'admin'];
+    const currentRole = document.querySelector(`tr[data-user-id="${userId}"] .role-badge`).textContent;
+    const currentIndex = roles.indexOf(currentRole);
+    const newRole = roles[(currentIndex + 1) % roles.length];
+    
+    if (confirm(`Change user role to ${newRole}?`)) {
+        fetch(`/admin/user/${userId}/role`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ role: newRole })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function deleteUser(userId) {
+    if (confirm('Are you sure you want to delete this user?')) {
+        fetch(`/admin/user/${userId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function toggleBlogStatus(blogId) {
+    fetch(`/admin/blog/${blogId}/toggle`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function deleteBlog(blogId) {
+    if (confirm('Are you sure you want to delete this blog?')) {
+        fetch(`/admin/blog/${blogId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+
+function toggleCommentStatus(commentId) {
+    fetch(`/admin/comment/${commentId}/toggle`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function deleteComment(commentId) {
+    if (confirm('Are you sure you want to delete this comment?')) {
+        fetch(`/admin/comment/${commentId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+}
+</script>
+{% endblock %} 
