@@ -51,10 +51,30 @@ def init_db():
             # Add sample users if none exist
             if not User.query.first():
                 users = [
-                    User(username='John Doe', role='author', bio='Tech enthusiast and writer'),
-                    User(username='Jane Smith', role='moderator', bio='Community moderator'),
-                    User(username='Admin User', role='admin', bio='System administrator')
+                    User(
+                        username='John Doe',
+                        email='john@example.com',
+                        role='author',
+                        bio='Tech enthusiast and writer'
+                    ),
+                    User(
+                        username='Jane Smith',
+                        email='jane@example.com',
+                        role='moderator',
+                        bio='Community moderator'
+                    ),
+                    User(
+                        username='Admin User',
+                        email='admin@example.com',
+                        role='admin',
+                        bio='System administrator'
+                    )
                 ]
+                
+                # Set default passwords for sample users
+                for user in users:
+                    user.set_password('password123')
+                
                 db.session.add_all(users)
                 db.session.commit()
                 logger.info("Sample users added to database")
