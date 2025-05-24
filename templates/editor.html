@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}{% if blog %}Edit Blog{% else %}New Blog{% endif %} - BlogNow{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <h1 class="editor-title">
+        {% if blog %}Edit Blog{% else %}Write New Blog{% endif %}
+    </h1>
+
+    <form class="blog-form" method="POST" action="{{ url_for('edit_blog', blog_id=blog.id) if blog else url_for('new_blog') }}">
+        <div class="form-group">
+            <label for="title" class="form-label">Title</label>
+            <input type="text" id="title" name="title" class="form-control" required
+                   value="{{ blog.title if blog else '' }}"
+                   placeholder="Enter your blog title">
+        </div>
+
+        <div class="form-group">
+            <label for="tags" class="form-label">Tags (comma-separated)</label>
+            <input type="text" id="tags" name="tags" class="form-control"
+                   value="{{ blog.tags if blog else '' }}"
+                   placeholder="e.g., technology, programming, web development">
+        </div>
+
+        <div class="form-group">
+            <label for="content" class="form-label">Content</label>
+            <textarea id="content" name="content" class="form-control" required
+                      placeholder="Write your blog content here...">{{ blog.content if blog else '' }}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" name="publish" value="true" class="btn btn-primary">
+                {% if blog and blog.published %}Update{% else %}Publish{% endif %}
+            </button>
+            <button type="submit" name="publish" value="false" class="btn btn-secondary">
+                Save as Draft
+            </button>
+            <a href="{{ url_for('home') }}" class="btn btn-link">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+{% endblock %} 

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}{{ blog.title }} - BlogNow{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/blog.css') }}">
+{% endblock %}
+
+{% block content %}
+<article class="blog-detail">
+    <header class="blog-header">
+        <h1 class="blog-title">{{ blog.title }}</h1>
+        <div class="blog-meta">
+            <div class="author-info">
+                <a href="{{ url_for('profile', user_id=blog.author.id) }}" class="author-name">
+                    {{ blog.author.username }}
+                </a>
+                <span class="role-badge {{ blog.author.role }}">{{ blog.author.role }}</span>
+            </div>
+            <div class="blog-dates">
+                <span class="publish-date">Published: {{ blog.created_at.strftime('%B %d, %Y') }}</span>
+                {% if blog.updated_at != blog.created_at %}
+                <span class="update-date">Updated: {{ blog.updated_at.strftime('%B %d, %Y') }}</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="blog-tags">
+            {% for tag in blog.tags.split(',') %}
+            <span class="tag">{{ tag.strip() }}</span>
+            {% endfor %}
+        </div>
+    </header>
+
+    <div class="blog-content">
+        {{ blog.content|safe }}
+    </div>
+
+    <div class="blog-actions">
+        <button class="btn like-btn" onclick="likeBlog({{ blog.id }})">
+            <i class="like-icon">❤</i>
+            <span class="like-count">{{ blog.likes|length }}</span>
+        </button>
+        <button class="btn share-btn" onclick="shareBlog({{ blog.id }})">
+            <i class="share-icon">📤</i>
+            Share
+        </button>
+        {% if current_user.role in ['moderator', 'admin'] or blog.author_id == current_user.id %}
+        <a href="{{ url_for('edit_blog', blog_id=blog.id) }}" class="btn edit-btn">
+            <i class="edit-icon">✏️</i>
+            Edit
+        </a>
+        {% endif %}
+    </div>
+
+    <section class="comments-section">
+        <h2>Comments</h2>
+        
+        {% if current_user.role != 'guest' %}
+        <form class="comment-form" action="{{ url_for('add_comment', blog_id=blog.id) }}" method="POST">
+            <textarea name="content" class="form-control" placeholder="Write a comment..." required></textarea>
+            <button type="submit" class="btn btn-primary">Post Comment</button>
+        </form>
+        {% endif %}
+
+        <div class="comments-list">
+            {% for comment in blog.comments|sort(attribute='created_at', reverse=true) %}
+            <div class="comment">
+                <div class="comment-header">
+                    <a href="{{ url_for('profile', user_id=comment.author.id) }}" class="comment-author">
+                        {{ comment.author.username }}
+                    </a>
+                    <span class="comment-date">{{ comment.created_at.strftime('%B %d, %Y %H:%M') }}</span>
+                </div>
+                <div class="comment-content">
+                    {{ comment.content }}
+                </div>
+            </div>
+            {% else %}
+            <p class="no-comments">No comments yet. Be the first to comment!</p>
+            {% endfor %}
+        </div>
+    </section>
+</article>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/blog.js') }}"></script>
+{% endblock %} 
