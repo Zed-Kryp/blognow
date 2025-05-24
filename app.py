@@ -3,13 +3,26 @@ from models import db, User, Blog, Comment, Like
 import os
 from datetime import datetime
 from dotenv import load_dotenv
+import logging
+import re
 
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///blog.db')
+
+# Handle Render's PostgreSQL URL format
+database_url = os.getenv('DATABASE_URL', 'sqlite:///blog.db')
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-please-change-in-production')
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 db.init_app(app)
 
 # Mock current user (for development)
@@ -19,31 +32,43 @@ CURRENT_USER = {
     'role': 'author'
 }
 
-# Create database tables
-with app.app_context():
-    db.create_all()
-    
-    # Add sample users if none exist
-    if not User.query.first():
-        users = [
-            User(username='John Doe', role='author', bio='Tech enthusiast and writer'),
-            User(username='Jane Smith', role='moderator', bio='Community moderator'),
-            User(username='Admin User', role='admin', bio='System administrator')
-        ]
-        db.session.add_all(users)
-        db.session.commit()
+def init_db():
+    try:
+        with app.app_context():
+            db.create_all()
+            
+            # Add sample users if none exist
+            if not User.query.first():
+                users = [
+                    User(username='John Doe', role='author', bio='Tech enthusiast and writer'),
+                    User(username='Jane Smith', role='moderator', bio='Community moderator'),
+                    User(username='Admin User', role='admin', bio='System administrator')
+                ]
+                db.session.add_all(users)
+                db.session.commit()
+                logger.info("Database initialized with sample users")
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        raise
+
+# Initialize database
+init_db()
 
 @app.route('/')
 def home():
-    sort_by = request.args.get('sort', 'latest')
-    blogs = Blog.query.filter_by(published=True)
-    
-    if sort_by == 'latest':
-        blogs = blogs.order_by(Blog.created_at.desc())
-    elif sort_by == 'most_liked':
-        blogs = blogs.order_by(Blog.likes.desc())
-    
-    return render_template('home.html', blogs=blogs.all(), current_user=CURRENT_USER)
+    try:
+        sort_by = request.args.get('sort', 'latest')
+        blogs = Blog.query.filter_by(published=True)
+        
+        if sort_by == 'latest':
+            blogs = blogs.order_by(Blog.created_at.desc())
+        elif sort_by == 'most_liked':
+            blogs = blogs.order_by(Blog.likes.desc())
+        
+        return render_template('home.html', blogs=blogs.all(), current_user=CURRENT_USER)
+    except Exception as e:
+        logger.error(f"Error in home route: {str(e)}")
+        return render_template('error.html', error="An error occurred while loading the home page"), 500
 
 @app.route('/blog/<int:blog_id>')
 def blog_detail(blog_id):
@@ -121,8 +146,21 @@ def add_comment(blog_id):
 
 @app.route('/profile/<int:user_id>')
 def profile(user_id):
-    user = User.query.get_or_404(user_id)
-    return render_template('profile.html', user=user, current_user=CURRENT_USER)
+    try:
+        user = User.query.get_or_404(user_id)
+        return render_template('profile.html', user=user, current_user=CURRENT_USER)
+    except Exception as e:
+        logger.error(f"Error in profile route: {str(e)}")
+        return render_template('error.html', error="An error occurred while loading the profile"), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('error.html', error="Page not found"), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('error.html', error="Internal server error"), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
