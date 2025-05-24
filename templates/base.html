@@ -14,7 +14,7 @@
         </div>
         <div class="nav-links">
             <a href="{{ url_for('home') }}">Home</a>
-            {% if session.get('user_id') %}
+            {% if current_user %}
                 <a href="{{ url_for('create_blog') }}">Write</a>
                 <a href="{{ url_for('profile', username=current_user.username) }}">Profile</a>
                 {% if current_user.role == 'admin' %}

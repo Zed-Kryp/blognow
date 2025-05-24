@@ -30,13 +30,6 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-please-change-in-pro
 
 db.init_app(app)
 
-# Mock current user (for development)
-CURRENT_USER = {
-    'id': 1,
-    'username': 'John Doe',
-    'role': 'author'
-}
-
 def init_db():
     try:
         with app.app_context():
@@ -166,7 +159,7 @@ def home():
         elif sort_by == 'most_liked':
             blogs = blogs.order_by(Blog.likes.desc())
         
-        return render_template('home.html', blogs=blogs.all(), current_user=CURRENT_USER)
+        return render_template('home.html', blogs=blogs.all())
     except Exception as e:
         logger.error(f"Error in home route: {str(e)}")
         return render_template('error.html', error="An error occurred while loading the home page"), 500
@@ -174,31 +167,29 @@ def home():
 @app.route('/blog/<int:blog_id>')
 def blog_detail(blog_id):
     blog = Blog.query.get_or_404(blog_id)
-    return render_template('blog.html', blog=blog, current_user=CURRENT_USER)
+    return render_template('blog.html', blog=blog)
 
 @app.route('/blog/new', methods=['GET', 'POST'])
-def new_blog():
-    if CURRENT_USER['role'] not in ['author', 'moderator', 'admin']:
-        return redirect(url_for('home'))
-    
+@login_required
+def create_blog():
     if request.method == 'POST':
         blog = Blog(
             title=request.form['title'],
             content=request.form['content'],
             tags=request.form['tags'],
-            author_id=CURRENT_USER['id'],
+            author_id=session['user_id'],
             published=request.form.get('publish') == 'true'
         )
         db.session.add(blog)
         db.session.commit()
         return redirect(url_for('blog_detail', blog_id=blog.id))
     
-    return render_template('editor.html', current_user=CURRENT_USER)
+    return render_template('editor.html')
 
 @app.route('/blog/<int:blog_id>/edit', methods=['GET', 'POST'])
 def edit_blog(blog_id):
     blog = Blog.query.get_or_404(blog_id)
-    if CURRENT_USER['role'] not in ['moderator', 'admin'] and blog.author_id != CURRENT_USER['id']:
+    if session['user_id'] not in ['moderator', 'admin'] and blog.author_id != session['user_id']:
         return redirect(url_for('home'))
     
     if request.method == 'POST':
@@ -209,35 +200,31 @@ def edit_blog(blog_id):
         db.session.commit()
         return redirect(url_for('blog_detail', blog_id=blog.id))
     
-    return render_template('editor.html', blog=blog, current_user=CURRENT_USER)
+    return render_template('editor.html', blog=blog)
 
 @app.route('/blog/<int:blog_id>/like', methods=['POST'])
+@login_required
 def like_blog(blog_id):
-    if CURRENT_USER['role'] == 'guest':
-        return jsonify({'error': 'Guests cannot like blogs'}), 403
-    
     blog = Blog.query.get_or_404(blog_id)
-    existing_like = Like.query.filter_by(user_id=CURRENT_USER['id'], blog_id=blog_id).first()
+    existing_like = Like.query.filter_by(user_id=session['user_id'], blog_id=blog_id).first()
     
     if existing_like:
         db.session.delete(existing_like)
         db.session.commit()
         return jsonify({'liked': False, 'count': len(blog.likes) - 1})
     
-    like = Like(user_id=CURRENT_USER['id'], blog_id=blog_id)
+    like = Like(user_id=session['user_id'], blog_id=blog_id)
     db.session.add(like)
     db.session.commit()
     return jsonify({'liked': True, 'count': len(blog.likes)})
 
 @app.route('/blog/<int:blog_id>/comment', methods=['POST'])
+@login_required
 def add_comment(blog_id):
-    if CURRENT_USER['role'] == 'guest':
-        return jsonify({'error': 'Guests cannot comment'}), 403
-    
     blog = Blog.query.get_or_404(blog_id)
     comment = Comment(
         content=request.form['content'],
-        author_id=CURRENT_USER['id'],
+        author_id=session['user_id'],
         blog_id=blog_id
     )
     db.session.add(comment)
@@ -245,11 +232,11 @@ def add_comment(blog_id):
     
     return redirect(url_for('blog_detail', blog_id=blog_id))
 
-@app.route('/profile/<int:user_id>')
-def profile(user_id):
+@app.route('/profile/<username>')
+def profile(username):
     try:
-        user = User.query.get_or_404(user_id)
-        return render_template('profile.html', user=user, current_user=CURRENT_USER)
+        user = User.query.filter_by(username=username).first_or_404()
+        return render_template('profile.html', user=user)
     except Exception as e:
         logger.error(f"Error in profile route: {str(e)}")
         return render_template('error.html', error="An error occurred while loading the profile"), 500
@@ -274,7 +261,7 @@ def inject_user():
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user or current_user.role != 'admin':
+        if not session.get('user_id') or User.query.get(session['user_id']).role != 'admin':
             flash('You do not have permission to access this page.', 'error')
             return redirect(url_for('home'))
         return f(*args, **kwargs)
@@ -324,7 +311,7 @@ def admin_update_role(user_id):
 def admin_delete_user(user_id):
     user = User.query.get_or_404(user_id)
     
-    if user.id == current_user.id:
+    if user.id == session.get('user_id'):
         return jsonify({'success': False, 'error': 'Cannot delete your own account'})
     
     try:
